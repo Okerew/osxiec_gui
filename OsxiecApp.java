@@ -247,7 +247,7 @@ public class OsxiecApp extends JFrame {
         int returnValue = fileChooser.showOpenDialog(this);
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             File selectedFolder = fileChooser.getSelectedFile();
-            String command = "sudo osxiec -contain " + selectedFolder.getAbsolutePath() + " " + selectedFolder.getName() + ".bin";
+            String command = "sudo /usr/local/bin/osxiec -contain " + selectedFolder.getAbsolutePath() + " " + selectedFolder.getName() + ".bin";
             executeCommand(command);
         }
     }
@@ -268,7 +268,7 @@ public class OsxiecApp extends JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             String filePath = selectedFile.getAbsolutePath();
             historyListModel.addElement(filePath);  // Add to history
-            String command = "sudo osxiec -execute " + filePath;
+            String command = "sudo /usr/local/bin/osxiec -execute " + filePath;
             executeCommand(command);
         }
     }
@@ -297,7 +297,7 @@ public class OsxiecApp extends JFrame {
             int result = JOptionPane.showConfirmDialog(null, panel, "Run with VLAN Network", JOptionPane.OK_CANCEL_OPTION);
             if (result == JOptionPane.OK_OPTION) {
                 String networkName = networkNameField.getText().trim();
-                String command = "sudo osxiec -run " + filePath + " " + networkName;
+                String command = "sudo /usr/local/bin/osxiec -run " + filePath + " " + networkName;
                 executeCommand(command);
             }
         }
@@ -318,7 +318,7 @@ public class OsxiecApp extends JFrame {
         if (result == JOptionPane.OK_OPTION) {
             String networkName = networkNameField.getText().trim();
             String vlanId = vlanIdField.getText().trim();
-            String command = "sudo osxiec -network create " + networkName + " " + vlanId;
+            String command = "sudo /usr/local/bin/osxiec -network create " + networkName + " " + vlanId;
             executeCommand(command);
         }
     }
@@ -327,7 +327,7 @@ public class OsxiecApp extends JFrame {
         String selectedItem = historyList.getSelectedValue();
         if (selectedItem != null) {
             showOutputArea();
-            String command = "sudo osxiec -execute " + selectedItem;
+            String command = "sudo /usr/local/bin/osxiec -execute " + selectedItem;
             executeCommand(command);
         } else {
             JOptionPane.showMessageDialog(this, "Please select an item from the history.", "No Selection", JOptionPane.WARNING_MESSAGE);
@@ -336,7 +336,7 @@ public class OsxiecApp extends JFrame {
 
     private void clean() {
         showOutputArea();
-        String command = "sudo osxiec -clean";
+        String command = "sudo /usr/local/bin/osxiec -clean";
         executeCommand(command);
     }
 
@@ -352,8 +352,13 @@ public class OsxiecApp extends JFrame {
     private void executeCommand(String command) {
         new Thread(() -> {
             try {
+                System.out.println("Working Directory: " + System.getProperty("user.dir"));
+                System.out.println("PATH: " + System.getenv("PATH"));
+
                 ProcessBuilder processBuilder = new ProcessBuilder("sudo", "-S", "sh", "-c", command);
                 processBuilder.directory(new File(directoryField.getText()));
+                processBuilder.redirectErrorStream(true);
+
                 Process process = processBuilder.start();
 
                 JPasswordField passwordField = new JPasswordField();
@@ -362,42 +367,31 @@ public class OsxiecApp extends JFrame {
                 if (option == JOptionPane.OK_OPTION) {
                     char[] password = passwordField.getPassword();
 
-                    OutputStream outputStream = process.getOutputStream();
-                    try {
+                    try (OutputStream outputStream = process.getOutputStream();
+                         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+
                         outputStream.write(new String(password).getBytes());
                         outputStream.write("\n".getBytes());
                         outputStream.flush();
+
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            final String outputLine = line;
+                            SwingUtilities.invokeLater(() -> outputArea.append(outputLine + "\n"));
+                        }
                     } finally {
-                        outputStream.close();
                         java.util.Arrays.fill(password, ' ');
                     }
 
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-
-                    try {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            String outputLine = line;
-                            SwingUtilities.invokeLater(() -> outputArea.append(outputLine + "\n"));
-                        }
-                        while ((line = errorReader.readLine()) != null) {
-                            String errorLine = line;
-                            SwingUtilities.invokeLater(() -> outputArea.append("Error: " + errorLine + "\n"));
-                        }
-                    } finally {
-                        reader.close();
-                        errorReader.close();
-                    }
-
-                    int exitCode = process.waitFor();
+                    final int exitCode = process.waitFor();
                     SwingUtilities.invokeLater(() -> outputArea.append("Process exited with code: " + exitCode + "\n"));
                 } else {
                     process.destroy();
                     SwingUtilities.invokeLater(() -> outputArea.append("Command execution cancelled.\n"));
                 }
             } catch (IOException | InterruptedException ex) {
-                SwingUtilities.invokeLater(() -> outputArea.append("Error executing command: " + ex.getMessage() + "\n"));
+                final String errorMessage = ex.getMessage();
+                SwingUtilities.invokeLater(() -> outputArea.append("Error executing command: " + errorMessage + "\n"));
             }
         }).start();
     }
