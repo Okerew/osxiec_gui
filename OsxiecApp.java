@@ -16,6 +16,10 @@ public class OsxiecApp extends JFrame {
     private boolean isDarkMode = false;
     private JPanel topPanel, buttonPanel, historyPanel;
     private static final String CONFIG_FILE = System.getProperty("user.home") + "/.osxiec/config.properties";
+    private JTextField commandInputField;
+    private Process currentProcess;
+    private PrintWriter processInputWriter;
+    private JPanel commandInputPanel;
 
     public OsxiecApp() {
         setTitle("Osxiec App");
@@ -29,8 +33,21 @@ public class OsxiecApp extends JFrame {
         setupLookAndFeel();
         setupTopPanel();
         setupCenterPanel();
+        setupCommandInputPanel();
         setupButtonPanel();
         setupHistoryPanel();
+
+        // Create a new panel to hold both the command input and button panels
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(commandInputPanel, BorderLayout.NORTH);
+        bottomPanel.add(buttonPanel, BorderLayout.CENTER);
+
+        // Add panels to the main frame
+        add(topPanel, BorderLayout.NORTH);
+        add(centerPanel, BorderLayout.CENTER);
+        add(bottomPanel, BorderLayout.SOUTH);
+        add(historyPanel, BorderLayout.EAST);
+
         loadHistory();
         updateColors();
 
@@ -127,7 +144,7 @@ public class OsxiecApp extends JFrame {
     }
 
     private void setupButtonPanel() {
-        buttonPanel = new JPanel(new GridLayout(2, 4, 10, 10));
+        buttonPanel = new JPanel(new GridLayout(3, 4, 10, 10));
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         addButton(buttonPanel, "Containerize", e -> containerize());
@@ -137,9 +154,14 @@ public class OsxiecApp extends JFrame {
         addButton(buttonPanel, "Clean", e -> clean());
         addButton(buttonPanel, "Osxiec Hub", e -> openWebpage("https://osxiec.glitch.me"));
         addButton(buttonPanel, "Close Process", e -> closeProcess());
+        addButton(buttonPanel, "Deploy", e -> deploy());
+        addButton(buttonPanel, "Scan", e -> scan());
+        addButton(buttonPanel, "Deploym", e -> deployM());
+
 
         add(buttonPanel, BorderLayout.SOUTH);
     }
+
 
     private void setupHistoryPanel() {
         historyListModel = new DefaultListModel<>();
@@ -157,6 +179,29 @@ public class OsxiecApp extends JFrame {
         historyPanel.add(executeFromHistoryButton, BorderLayout.SOUTH);
 
         add(historyPanel, BorderLayout.EAST);
+    }
+
+    private void setupCommandInputPanel() {
+        commandInputPanel = new JPanel(new BorderLayout());
+        commandInputField = new JTextField();
+        JButton sendCommandButton = new JButton("Send Command");
+        sendCommandButton.addActionListener(e -> sendCommand());
+
+        commandInputPanel.add(commandInputField, BorderLayout.CENTER);
+        commandInputPanel.add(sendCommandButton, BorderLayout.EAST);
+        commandInputPanel.setBorder(BorderFactory.createTitledBorder("Send Command to Process"));
+    }
+
+    private void sendCommand() {
+        if (processInputWriter != null) {
+            String command = commandInputField.getText();
+            processInputWriter.println(command);
+            processInputWriter.flush();
+            commandInputField.setText("");
+            outputArea.append("> " + command + "\n");
+        } else {
+            JOptionPane.showMessageDialog(this, "No active process to send command to.", "No Process", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     private void addButton(JPanel panel, String title, ActionListener action) {
@@ -220,7 +265,6 @@ public class OsxiecApp extends JFrame {
 
     }
 
-
     private void showOutputArea() {
         if (!centerPanel.isVisible()) {
             centerPanel.setVisible(true);
@@ -248,6 +292,18 @@ public class OsxiecApp extends JFrame {
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             File selectedFolder = fileChooser.getSelectedFile();
             String command = "sudo /usr/local/bin/osxiec -contain " + selectedFolder.getAbsolutePath() + " " + selectedFolder.getName() + ".bin";
+            executeCommand(command);
+        }
+    }
+
+    private void deployM() {
+        showOutputArea();
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        int returnValue = fileChooser.showOpenDialog(this);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            String command = "sudo /usr/local/bin/osxiec -deploym " + selectedFile.getAbsolutePath();
             executeCommand(command);
         }
     }
@@ -303,7 +359,6 @@ public class OsxiecApp extends JFrame {
         }
     }
 
-
     private void createVlanNetwork() {
         showOutputArea();
         JTextField networkNameField = new JTextField(20);
@@ -340,6 +395,29 @@ public class OsxiecApp extends JFrame {
         executeCommand(command);
     }
 
+    private void deploy() {
+        showOutputArea();
+        JFileChooser fileChooser = new JFileChooser();
+        int returnValue = fileChooser.showOpenDialog(this);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            String command = "sudo /usr/local/bin/osxiec -deploy " + selectedFile.getAbsolutePath();
+            executeCommand(command);
+        }
+    }
+
+    private void scan() {
+        showOutputArea();
+        JFileChooser fileChooser = new JFileChooser();
+        int returnValue = fileChooser.showOpenDialog(this);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            String command = "sudo /usr/local/bin/osxiec -scan " + selectedFile.getAbsolutePath();
+            executeCommand(command);
+        }
+    }
+
+
     private void openWebpage(String url) {
         try {
             Desktop.getDesktop().browse(new URI(url));
@@ -352,14 +430,14 @@ public class OsxiecApp extends JFrame {
     private void executeCommand(String command) {
         new Thread(() -> {
             try {
-                System.out.println("Working Directory: " + System.getProperty("user.dir"));
-                System.out.println("PATH: " + System.getenv("PATH"));
-
                 ProcessBuilder processBuilder = new ProcessBuilder("sudo", "-S", "sh", "-c", command);
                 processBuilder.directory(new File(directoryField.getText()));
                 processBuilder.redirectErrorStream(true);
 
-                Process process = processBuilder.start();
+                currentProcess = processBuilder.start();
+
+                // Set up the input writer
+                processInputWriter = new PrintWriter(new OutputStreamWriter(currentProcess.getOutputStream()), true);
 
                 JPasswordField passwordField = new JPasswordField();
                 int option = JOptionPane.showConfirmDialog(this, passwordField, "Enter your sudo password:", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
@@ -367,12 +445,9 @@ public class OsxiecApp extends JFrame {
                 if (option == JOptionPane.OK_OPTION) {
                     char[] password = passwordField.getPassword();
 
-                    try (OutputStream outputStream = process.getOutputStream();
-                         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-
-                        outputStream.write(new String(password).getBytes());
-                        outputStream.write("\n".getBytes());
-                        outputStream.flush();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(currentProcess.getInputStream()))) {
+                        processInputWriter.println(new String(password));
+                        processInputWriter.flush();
 
                         String line;
                         while ((line = reader.readLine()) != null) {
@@ -383,10 +458,13 @@ public class OsxiecApp extends JFrame {
                         java.util.Arrays.fill(password, ' ');
                     }
 
-                    final int exitCode = process.waitFor();
-                    SwingUtilities.invokeLater(() -> outputArea.append("Process exited with code: " + exitCode + "\n"));
+                    final int exitCode = currentProcess.waitFor();
+                    SwingUtilities.invokeLater(() -> {
+                        outputArea.append("Process exited with code: " + exitCode + "\n");
+                        processInputWriter = null;
+                    });
                 } else {
-                    process.destroy();
+                    currentProcess.destroy();
                     SwingUtilities.invokeLater(() -> outputArea.append("Command execution cancelled.\n"));
                 }
             } catch (IOException | InterruptedException ex) {
