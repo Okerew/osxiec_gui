@@ -157,6 +157,7 @@ public class OsxiecApp extends JFrame {
         addButton(buttonPanel, "Deploy", e -> deploy());
         addButton(buttonPanel, "Scan", e -> scan());
         addButton(buttonPanel, "Deploym", e -> deployM());
+        addButton(buttonPanel, "Craft", e -> craft());
 
 
         add(buttonPanel, BorderLayout.SOUTH);
@@ -414,6 +415,42 @@ public class OsxiecApp extends JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             String command = "sudo /usr/local/bin/osxiec -scan " + selectedFile.getAbsolutePath();
             executeCommand(command);
+        }
+    }
+
+    private void craft() {
+        showOutputArea();
+
+        JFileChooser directoryChooser = new JFileChooser();
+        directoryChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        directoryChooser.setDialogTitle("Select Directory");
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fileChooser.setDialogTitle("Select Input Bin File");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".bin");
+            }
+            public String getDescription() {
+                return "BIN Files (*.bin)";
+            }
+        });
+
+        int directoryResult = directoryChooser.showOpenDialog(this);
+        int fileResult = fileChooser.showOpenDialog(this);
+
+        if (directoryResult == JFileChooser.APPROVE_OPTION && fileResult == JFileChooser.APPROVE_OPTION) {
+            File selectedDirectory = directoryChooser.getSelectedFile();
+            File selectedFile = fileChooser.getSelectedFile();
+
+            String command = "sudo /usr/local/bin/osxiec -craft " +
+                    selectedDirectory.getAbsolutePath() + " " +
+                    selectedFile.getAbsolutePath() + " " + "output.bin";
+
+            executeCommand(command);
+        } else {
+            JOptionPane.showMessageDialog(this, "Both directory and input file must be selected.", "Selection Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
