@@ -170,6 +170,7 @@ public class OsxiecApp extends JFrame {
         addButton(buttonPanel, "Run with VLAN Network", e -> runWithVlanNetwork());
         addButton(buttonPanel, "Create VLAN Network", e -> createVlanNetwork());
         addButton(buttonPanel, "Clean", e -> clean());
+        addButton(buttonPanel, "PFClean", e -> pfclean());
         addButton(buttonPanel, "Osxiec Hub", e -> openWebpage("https://osxiec.glitch.me"));
         addButton(buttonPanel, "Close Process", e -> closeProcess());
         addButton(buttonPanel, "Deploy", e -> deploy());
@@ -177,9 +178,9 @@ public class OsxiecApp extends JFrame {
         addButton(buttonPanel, "Deploym", e -> deployM());
         addButton(buttonPanel, "Craft", e -> craft());
         addButton(buttonPanel, "Show PF Config", e -> showPFConfig());
-        addButton(buttonPanel, "Update Container", e -> updateContainer()); // New button
-        addButton(buttonPanel, "Copy Volume", e -> copyVolume()); // New button
-        addButton(buttonPanel, "BCN Network", e -> bcnNetwork()); // New button
+        addButton(buttonPanel, "Update Container", e -> updateContainer());
+        addButton(buttonPanel, "Copy Volume", e -> copyVolume());
+        addButton(buttonPanel, "BCN Network", e -> bcnNetwork());
 
         add(buttonPanel, BorderLayout.SOUTH);
     }
@@ -480,6 +481,21 @@ public class OsxiecApp extends JFrame {
         showOutputArea();
         String command = "sudo /usr/local/bin/osxiec -clean";
         executeCommand(command);
+    }
+
+    private void pfclean() {
+        showOutputArea();
+        JTextField vlanIdField = new JTextField(20);
+        JPanel panel = new JPanel(new GridLayout(1, 1));
+        panel.add(new JLabel("VLAN ID:"));
+        panel.add(vlanIdField);
+
+        int result = JOptionPane.showConfirmDialog(null, panel, "PFClean", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            String vlanId = vlanIdField.getText().trim();
+            String command = "sudo /usr/local/bin/osxiec -pfclean " + vlanId;
+            executeCommand(command);
+        }
     }
 
     private void deploy() {
@@ -789,6 +805,7 @@ public class OsxiecApp extends JFrame {
             addButton(buttonPanel, "Run with VLAN Network", e -> runWithVlanNetwork());
             addButton(buttonPanel, "Create VLAN Network", e -> createVlanNetwork());
             addButton(buttonPanel, "Clean", e -> clean());
+            addButton(buttonPanel, "PFClean", e -> pfclean());
             addButton(buttonPanel, "Osxiec Hub", e -> openWebpage("https://osxiec.glitch.me"));
             addButton(buttonPanel, "Close Process", e -> closeProcess());
             addButton(buttonPanel, "Deploy", e -> deploy());
@@ -796,9 +813,9 @@ public class OsxiecApp extends JFrame {
             addButton(buttonPanel, "Deploym", e -> deployM());
             addButton(buttonPanel, "Craft", e -> craft());
             addButton(buttonPanel, "Show PF Config", e -> showPFConfig());
-            addButton(buttonPanel, "Update Container", e -> updateContainer()); // New button
-            addButton(buttonPanel, "Copy Volume", e -> copyVolume()); // New button
-            addButton(buttonPanel, "BCN Network", e -> bcnNetwork()); // New button
+            addButton(buttonPanel, "Update Container", e -> updateContainer());
+            addButton(buttonPanel, "Copy Volume", e -> copyVolume());
+            addButton(buttonPanel, "BCN Network", e -> bcnNetwork());
 
             add(buttonPanel, BorderLayout.SOUTH);
         }
@@ -1065,6 +1082,21 @@ public class OsxiecApp extends JFrame {
             showOutputArea();
             String command = "sudo /usr/local/bin/osxiec -clean";
             executeCommand(command);
+        }
+
+        private void pfclean() {
+            showOutputArea();
+            JTextField vlanIdField = new JTextField(20);
+            JPanel panel = new JPanel(new GridLayout(1, 1));
+            panel.add(new JLabel("VLAN ID:"));
+            panel.add(vlanIdField);
+
+            int result = JOptionPane.showConfirmDialog(null, panel, "PFClean", JOptionPane.OK_CANCEL_OPTION);
+            if (result == JOptionPane.OK_OPTION) {
+                String vlanId = vlanIdField.getText().trim();
+                String command = "sudo /usr/local/bin/osxiec -pfclean " + vlanId;
+                executeCommand(command);
+            }
         }
 
         private void deploy() {
